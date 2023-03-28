@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      # Prefix all commit messages with "github-actions": "
+      prefix: "build(github-actions)"
+    reviewers:
+      - "sixcolors"
+      
+  # Maintain dependencies for gomod
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      # Prefix all commit messages with "gomod: "
+      prefix: "build(gomod)"
+    reviewers:
+      - "sixcolors"
