@@ -29,7 +29,7 @@ For convenience, the html and json are embedded in the binary. If you want to cu
 
 * `SERVER_PORT` - The port to listen on - defaults to `3000` - ***NOTE*** this is the same environment variable used by both docker and the binary.
 * `TARGET_URL` - The URL to redirect to if the health check passes - defaults to `https://example.com`
-* `HEALTH_CHECK_URL` - The URL to perform the health check against - defaults to `https://example.com/api/healthcheck`
+* `HEALTH_CHECK_URL` - The URL to perform the health check against - defaults to `https://example.com/healthz`
 * `HEALTH_CHECK_INTERVAL` - The interval in seconds between health checks, in seconds - defaults to `60`
 * `HEALTH_CHECK_TIMEOUT` - The timeout in seconds for the health check, in seconds - defaults to `10`
 * `HEALTH_CHECK_SUCCESS_CODE` - The HTTP status code that indicates a successful health check - defaults to `200`

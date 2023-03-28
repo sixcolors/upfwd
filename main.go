@@ -25,7 +25,7 @@ import (
  * Environment variables:
  * SERVER_PORT - The port to listen on - defaults to 3000
  * TARGET_URL - The URL to redirect to if the health check passes - defaults to https://example.com
- * HEALTH_CHECK_URL - The URL to perform the health check against - defaults to https://example.com/api/healthcheck
+ * HEALTH_CHECK_URL - The URL to perform the health check against - defaults to https://example.com/healthz
  * HEALTH_CHECK_INTERVAL - The interval in seconds between health checks, in seconds - defaults to 60
  * HEALTH_CHECK_TIMEOUT - The timeout in seconds for the health check, in seconds - defaults to 10
  * HEALTH_CHECK_SUCCESS_CODE - The HTTP status code that indicates a successful health check - defaults to 200
@@ -69,7 +69,7 @@ func main() {
 	}
 	log.Println("[\033[1;34mDEBUG\033[0m] Target URL:", targetUrl.String())
 
-	healthCheckURLString := env.GetString("HEALTH_CHECK_URL", "https://example.com/api/healthcheck")
+	healthCheckURLString := env.GetString("HEALTH_CHECK_URL", "https://example.com/healthz")
 	healthCheckURL, err := url.Parse(healthCheckURLString)
 	if err != nil {
 		// ERROR in color red, everything else is normal
