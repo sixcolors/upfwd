@@ -1,5 +1,7 @@
 # upfwd
 
+[![Coverage Status](https://coveralls.io/repos/github/sixcolors/upfwd/badge.svg?branch=main)](https://coveralls.io/github/sixcolors/upfwd?branch=main)
+
 ## Description
 
 This is a simple HTTP server that performs a health check on a target URL and redirects to the new server if the health check passes (StatusTemporaryRedirect). If the health check fails, it returns a 503 Service Unavailable response with a custom HTML page or json response (depending on the Accept header or /api/ path prefix if Accept header is not present).
