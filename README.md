@@ -1,5 +1,8 @@
 # upfwd
 
+[![CI](https://github.com/sixcolors/upfwd/actions/workflows/ci.yml/badge.svg)](https://github.com/sixcolors/upfwd/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/sixcolors/upfwd/actions/workflows/codeql.yml/badge.svg)](https://github.com/sixcolors/upfwd/actions/workflows/codeql.yml)
+[![Trivy](https://github.com/sixcolors/upfwd/actions/workflows/trivy.yml/badge.svg)](https://github.com/sixcolors/upfwd/actions/workflows/trivy.yml)
 [![Coverage Status](https://coveralls.io/repos/github/sixcolors/upfwd/badge.svg?branch=main)](https://coveralls.io/github/sixcolors/upfwd?branch=main)
 
 ## Description
