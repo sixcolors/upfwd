@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"k8s.io/utils/env"
@@ -21,6 +25,11 @@ import (
  * updated based on the result. The global health status is used to determine
  * whether to redirect to the target URL (StatusTemporaryRedirect)
  * or return a 503 Service Unavailable response.
+ *
+ * The server can be stopped gracefully by sending an interrupt signal (SIGINT)
+ * or a termination signal (SIGTERM). When the server receives a signal, it
+ * stops accepting new connections and waits up to 30 seconds for existing
+ * connections to close before exiting.
  *
  * Environment variables:
  * SERVER_PORT - The port to listen on - defaults to 3000
@@ -225,8 +234,26 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-	err = server.ListenAndServe()
+
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		err = server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatalf("[\033[1;31mERROR\033[0m] Error starting server: %s\n", err)
+		}
+	}()
+
+	// Wait for a signal to shutdown
+	sig := <-signalCh
+	log.Printf("[\033[1;32mINFO\033[0m] Received signal %s, shutting down...\n", sig)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	err = server.Shutdown(ctx)
 	if err != nil {
-		log.Fatalf("[\033[1;31mERROR\033[0m] Error starting server: %s\n", err)
+		log.Fatalf("[\033[1;31mERROR\033[0m] Error shutting down server: %s\n", err)
 	}
+	log.Printf("[\033[1;32mINFO\033[0m] Server shut down successfully\n")
 }
