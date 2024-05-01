@@ -21,7 +21,7 @@ For convenience, the html and json are embedded in the binary. If you want to cu
 
 ### Dependencies
 
-* Go version 1.20 or later
+* Go version 1.21 or later
 * Docker version 20.10.8 or later
 
 ### Building
