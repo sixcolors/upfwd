@@ -58,6 +58,8 @@ Contributors names and contact info
 
 ## Version History
 
+* 0.2
+    * Preserve redirect paths, document the health-check success code, and fix CI workflow PATH setup
 * 0.1
     * Initial Release
 

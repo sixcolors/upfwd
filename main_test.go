@@ -5,14 +5,50 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestMain(t *testing.T) {
-	// Create a test HTTP server
+func TestBuildRedirectURLPreservesQuery(t *testing.T) {
+	baseURL, err := url.Parse("https://example.com/base")
+	if err != nil {
+		t.Fatalf("Error parsing base URL: %s", err)
+	}
+
+	requestURL := &url.URL{Path: "/foo", RawQuery: "bar=baz"}
+	request := &http.Request{URL: requestURL}
+
+	got := buildRedirectURL(baseURL, request)
+	want := "https://example.com/base/foo?bar=baz"
+	if got != want {
+		t.Fatalf("Expected redirect URL %s, but got %s", want, got)
+	}
+}
+
+func TestValidateHealthCheckSuccessCode(t *testing.T) {
+	if err := validateHealthCheckSuccessCode(http.StatusOK); err != nil {
+		t.Fatalf("Expected 200 to be valid, but got error: %s", err)
+	}
+
+	for _, invalid := range []int{0, 99, 600} {
+		if err := validateHealthCheckSuccessCode(invalid); err == nil {
+			t.Fatalf("Expected %d to be invalid", invalid)
+		}
+	}
+}
+
+func TestParseURLReturnsErrorForInvalidInput(t *testing.T) {
+	if _, err := parseURL("health check URL", "http://[::1"); err == nil {
+		t.Fatal("Expected invalid URL to return an error")
+	}
+}
+
+func TestMainFlow(t *testing.T) {
+	globalHealthStatus.Set(false, false)
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -23,45 +59,38 @@ func TestMain(t *testing.T) {
 		}
 	}()
 
-	// Set environment variables for testing
-	envVars := map[string]string{
-		"SERVER_PORT":           "8080",
-		"TARGET_URL":            ts.URL,
-		"HEALTH_CHECK_URL":      ts.URL,
-		"HEALTH_CHECK_INTERVAL": "1",
-		"HEALTH_CHECK_TIMEOUT":  "1",
-	}
-	for k, v := range envVars {
-		if err := os.Setenv(k, v); err != nil {
-			t.Fatalf("Error setting environment variable %s: %s", k, err)
-		}
-	}
-	defer func() {
-		for k := range envVars {
-			if err := os.Unsetenv(k); err != nil {
-				t.Fatalf("Error unsetting environment variable %s: %s", k, err)
-			}
-		}
-	}()
+	t.Setenv("SERVER_PORT", "8080")
+	t.Setenv("TARGET_URL", ts.URL)
+	t.Setenv("HEALTH_CHECK_URL", ts.URL)
+	t.Setenv("HEALTH_CHECK_INTERVAL", "1")
+	t.Setenv("HEALTH_CHECK_TIMEOUT", "1")
 
-	// Start the server in a goroutine
 	c := make(chan struct{})
 	go func() {
 		main()
-		c <- struct{}{}
+		close(c)
 	}()
 
-	// Wait for the server to start
+	t.Cleanup(func() {
+		p, err := os.FindProcess(os.Getpid())
+		if err == nil {
+			_ = p.Signal(os.Interrupt)
+		}
+		select {
+		case <-c:
+		case <-time.After(5 * time.Second):
+			t.Log("server did not shut down within cleanup timeout")
+		}
+	})
+
 	time.Sleep(1 * time.Second)
 
-	// Create a http client
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
 
-	// Send a request to the server
 	resp, err := client.Get("http://localhost:8080")
 	if err != nil {
 		t.Fatalf("Error sending request to server: %s", err)
@@ -72,21 +101,18 @@ func TestMain(t *testing.T) {
 		}
 	}()
 
-	// Check the response status code
 	if resp.StatusCode != http.StatusTemporaryRedirect {
 		t.Errorf("Expected status code %d, but got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 	}
+	if location := resp.Header.Get("Location"); location != ts.URL+"/" {
+		t.Errorf("Expected Location header to be %s/, but got %s", ts.URL, location)
+	}
 
-	// check with health check url down
-
-	// stop ts server
 	ts.Close()
 	tsClosed = true
 
-	// wait for health check to fail
 	time.Sleep(2 * time.Second)
 
-	// Send a request to the server
 	unhealthyResp, err := client.Get("http://localhost:8080")
 	if err != nil {
 		t.Fatalf("Error sending request to server: %s", err)
@@ -97,23 +123,21 @@ func TestMain(t *testing.T) {
 		}
 	}()
 
-	// Check the response status code
 	if unhealthyResp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("Expected status code %d, but got %d", http.StatusServiceUnavailable, unhealthyResp.StatusCode)
 	}
 
-	// test request with application/json content type
-	var jsonData = []byte(`{
+	jsonData := []byte(`{
 		"name": "Morpheus",
 		"position": "Captained"
 	}`)
-	req, error := http.NewRequest("POST", "http://localhost:8080/api/neberkenezer/crew/", bytes.NewBuffer(jsonData))
-	if error != nil {
-		t.Fatalf("Error creating request: %s", error)
+	jsonReq, err := http.NewRequest("POST", "http://localhost:8080/api/neberkenezer/crew/", bytes.NewBuffer(jsonData))
+	if err != nil {
+		t.Fatalf("Error creating request: %s", err)
 	}
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	req.Header.Set("Accept", "application/json")
-	jsonResp, err := client.Do(req)
+	jsonReq.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	jsonReq.Header.Set("Accept", "application/json")
+	jsonResp, err := client.Do(jsonReq)
 	if err != nil {
 		t.Fatalf("Error sending request to server: %s", err)
 	}
@@ -123,33 +147,29 @@ func TestMain(t *testing.T) {
 		}
 	}()
 
-	// Check the response status code
 	if jsonResp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("Expected status code %d, but got %d", http.StatusServiceUnavailable, jsonResp.StatusCode)
 	}
 
-	// check the header Content-Type is application/json
 	if jsonResp.Header.Get("Content-Type") != "application/json" {
 		t.Errorf("Expected Content-Type header to be application/json, but got %s", jsonResp.Header.Get("Content-Type"))
 	}
 
-	// check the body is a json object
 	jsonBodyBytes, err := io.ReadAll(jsonResp.Body)
 	if err != nil {
 		t.Fatalf("Error reading json response body: %s", err)
 	}
-	expectedJsonBody := `{"status": "unavailable", "message": "service is currently undergoing a migration. Please try again later.", "detail": "service is currently undergoing a migration. Please try again later.", "code": 503}`
-	if strings.TrimSpace(string(jsonBodyBytes)) != expectedJsonBody {
-		t.Errorf("Expected json body %s, but got %s", expectedJsonBody, string(jsonBodyBytes))
+	expectedJSONBody := `{"status": "unavailable", "message": "service is currently undergoing a migration. Please try again later.", "detail": "service is currently undergoing a migration. Please try again later.", "code": 503}`
+	if strings.TrimSpace(string(jsonBodyBytes)) != expectedJSONBody {
+		t.Errorf("Expected json body %s, but got %s", expectedJSONBody, string(jsonBodyBytes))
 	}
 
-	// Test request with Accept: text/html when health check fails
-	reqHTML, err := http.NewRequest("GET", "http://localhost:8080/", nil)
+	htmlReq, err := http.NewRequest("GET", "http://localhost:8080/", nil)
 	if err != nil {
 		t.Fatalf("Error creating HTML request: %s", err)
 	}
-	reqHTML.Header.Set("Accept", "text/html")
-	respHTML, err := client.Do(reqHTML)
+	htmlReq.Header.Set("Accept", "text/html")
+	respHTML, err := client.Do(htmlReq)
 	if err != nil {
 		t.Fatalf("Error sending HTML request to server: %s", err)
 	}
@@ -165,6 +185,7 @@ func TestMain(t *testing.T) {
 	if contentType := respHTML.Header.Get("Content-Type"); contentType != "text/html" {
 		t.Errorf("Expected Content-Type header to be text/html, but got %s", contentType)
 	}
+
 	htmlBodyBytes, err := io.ReadAll(respHTML.Body)
 	if err != nil {
 		t.Fatalf("Error reading HTML response body: %s", err)
@@ -175,16 +196,4 @@ func TestMain(t *testing.T) {
 	if !strings.Contains(string(htmlBodyBytes), "<h1>We&rsquo;ll be back soon!</h1>") {
 		t.Errorf("Expected HTML body to contain '<h1>We&rsquo;ll be back soon!</h1>', but got: %s", string(htmlBodyBytes))
 	}
-
-	// send interrupt signal to the server
-	p, err := os.FindProcess(os.Getpid())
-	if err != nil {
-		t.Fatalf("Error finding process: %s", err)
-	}
-	if err := p.Signal(os.Interrupt); err != nil {
-		t.Fatalf("Error sending interrupt signal to server: %s", err)
-	}
-
-	// Wait for the server to stop
-	<-c
 }
