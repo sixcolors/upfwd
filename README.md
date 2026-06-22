@@ -58,10 +58,13 @@ Contributors names and contact info
 
 ## Version History
 
-* 0.2
-    * Preserve redirect paths, document the health-check success code, and fix CI workflow PATH setup
-* 0.1
-    * Initial Release
+* Unreleased since v1.0.0
+    * Restore redirect behavior, including query-string preservation, and fail fast on invalid health-check configuration
+    * Add `HEALTH_CHECK_SUCCESS_CODE` support and keep the health check state concurrency-safe
+    * Update GitHub Actions workflows to current supported action releases
+    * Add regression coverage for redirect handling and configuration validation
+* v1.0.0
+    * Initial release
 
 ## License
 
