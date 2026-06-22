@@ -26,8 +26,8 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
           check-latest: true
-      - name: Config Path
-        run: "export PATH=$(go env GOPATH)/bin:$PATH"
+      - name: Add GOPATH bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9.2.0
         with:
@@ -48,8 +48,8 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
           check-latest: true
-      - name: Config Path
-        run: "export PATH=$(go env GOPATH)/bin:$PATH"
+      - name: Add GOPATH bin to PATH
+        run: echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - name: Install Gosec
         run: "go install github.com/securego/gosec/v2/cmd/gosec@latest"
       - name: Run Gosec
