@@ -43,6 +43,35 @@ func (h *HealthStatus) Set(valid, value bool) {
 
 var globalHealthStatus = HealthStatus{status: NullBool{Valid: false}}
 
+func parseURL(fieldName, rawURL string) (*url.URL, error) {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing %s: %w", fieldName, err)
+	}
+
+	return parsedURL, nil
+}
+
+func validateHealthCheckSuccessCode(statusCode int) error {
+	if statusCode < 100 || statusCode > 599 {
+		return fmt.Errorf("health check success code must be between 100 and 599, got %d", statusCode)
+	}
+
+	return nil
+}
+
+func buildRedirectURL(base *url.URL, r *http.Request) string {
+	u := *base
+	if u.Path == "" {
+		u.Path = r.URL.Path
+	} else {
+		u.Path = strings.TrimRight(u.Path, "/") + r.URL.Path
+	}
+	u.RawQuery = r.URL.RawQuery
+
+	return u.String()
+}
+
 func main() {
 	log.Println("[\033[1;32mINFO\033[0m] Starting server...")
 
@@ -52,19 +81,25 @@ func main() {
 	}
 	log.Printf("[\033[1;34mDEBUG\033[0m] Server port: %d\n", serverPort)
 	targetUrlString := env.GetString("TARGET_URL", "https://example.com")
-	targetUrl, err := url.Parse(targetUrlString)
+	targetUrl, err := parseURL("target URL", targetUrlString)
 	if err != nil {
-		log.Fatalf("[\033[1;31mERROR\033[0m] Error parsing target URL: %s\n", err)
+		log.Fatalf("[\033[1;31mERROR\033[0m] %s\n", err)
 	}
 	log.Println("[\033[1;34mDEBUG\033[0m] Target URL:", targetUrl.String())
 
 	healthCheckURLString := env.GetString("HEALTH_CHECK_URL", "https://example.com/healthz")
-	healthCheckURL, err := url.Parse(healthCheckURLString)
+	healthCheckURL, err := parseURL("health check URL", healthCheckURLString)
 	if err != nil {
-		log.Printf("[\033[1;31mERROR\033[0m] Error parsing health check URL: %s\n", err)
+		log.Fatalf("[\033[1;31mERROR\033[0m] %s\n", err)
 	}
 	log.Println("[\033[1;34mDEBUG\033[0m] Health check URL:", healthCheckURL.String())
-	healthCheckSuccessCode, _ := env.GetInt("HEALTH_CHECK_SUCCESS_CODE", http.StatusOK)
+	healthCheckSuccessCode, err := env.GetInt("HEALTH_CHECK_SUCCESS_CODE", http.StatusOK)
+	if err != nil {
+		log.Fatalf("[\033[1;31mERROR\033[0m] Error parsing health check success code: %s\n", err)
+	}
+	if err := validateHealthCheckSuccessCode(healthCheckSuccessCode); err != nil {
+		log.Fatalf("[\033[1;31mERROR\033[0m] %s\n", err)
+	}
 	log.Printf("[\033[1;34mDEBUG\033[0m] Health check success code: %d\n", healthCheckSuccessCode)
 	healthCheckBody := env.GetString("HEALTH_CHECK_BODY", "")
 	if healthCheckBody != "" {
@@ -142,7 +177,7 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		current := globalHealthStatus.Get()
 		if current.Valid && current.Bool {
-			redirectURL := targetUrl.String() + r.URL.Path
+			redirectURL := buildRedirectURL(targetUrl, r)
 			w.Header().Set("Location", redirectURL)
 			w.WriteHeader(http.StatusTemporaryRedirect)
 			log.Printf("[\033[1;35mACCESS\033[0m] status=%d", http.StatusTemporaryRedirect)

@@ -5,11 +5,46 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestBuildRedirectURLPreservesQuery(t *testing.T) {
+	baseURL, err := url.Parse("https://example.com/base")
+	if err != nil {
+		t.Fatalf("Error parsing base URL: %s", err)
+	}
+
+	requestURL := &url.URL{Path: "/foo", RawQuery: "bar=baz"}
+	request := &http.Request{URL: requestURL}
+
+	got := buildRedirectURL(baseURL, request)
+	want := "https://example.com/base/foo?bar=baz"
+	if got != want {
+		t.Fatalf("Expected redirect URL %s, but got %s", want, got)
+	}
+}
+
+func TestValidateHealthCheckSuccessCode(t *testing.T) {
+	if err := validateHealthCheckSuccessCode(http.StatusOK); err != nil {
+		t.Fatalf("Expected 200 to be valid, but got error: %s", err)
+	}
+
+	for _, invalid := range []int{0, 99, 600} {
+		if err := validateHealthCheckSuccessCode(invalid); err == nil {
+			t.Fatalf("Expected %d to be invalid", invalid)
+		}
+	}
+}
+
+func TestParseURLReturnsErrorForInvalidInput(t *testing.T) {
+	if _, err := parseURL("health check URL", "http://[::1"); err == nil {
+		t.Fatal("Expected invalid URL to return an error")
+	}
+}
 
 func TestMainFlow(t *testing.T) {
 	globalHealthStatus.Set(false, false)
