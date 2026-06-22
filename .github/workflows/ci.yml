@@ -15,7 +15,7 @@ jobs:
     strategy: 
       matrix:
         go-version: 
-        - 1.24.x
+        - 1.26.x
     name: lint
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -38,7 +38,7 @@ jobs:
   GoSecurity:
     strategy: 
       matrix:
-        go-version: [1.24.x]
+        go-version: [1.26.x]
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Repository
