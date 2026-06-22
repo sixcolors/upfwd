@@ -58,7 +58,7 @@ Contributors names and contact info
 
 ## Version History
 
-* Unreleased since v1.0.0
+* v1.1.0
     * Restore redirect behavior, including query-string preservation, and fail fast on invalid health-check configuration
     * Add `HEALTH_CHECK_SUCCESS_CODE` support and keep the health check state concurrency-safe
     * Update GitHub Actions workflows to current supported action releases
