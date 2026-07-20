@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7.0.0
+      - uses: actions/checkout@v7.0.1
       - name: Set up Go
         uses: actions/setup-go@v6.5.0
         with:
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Fetch Repository
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
       - name: Set up Go
         uses: actions/setup-go@v6.5.0
         with:
